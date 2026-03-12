@@ -1,0 +1,339 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is admin (checks user_roles collection)
+    // Document ID format: {userId}_admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/user_roles/$(request.auth.uid + '_admin'));
+    }
+    
+    // Check if user is a provider (checks user_roles collection)
+    // Document ID format: {userId}_provider
+    function isProvider() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/user_roles/$(request.auth.uid + '_provider'));
+    }
+    
+    // ============================================
+    // USERS - Core user document with userType
+    // ============================================
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAdmin();
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // ============================================
+    // CITIZENS - Citizen-specific data
+    // ============================================
+    match /citizens/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId);
+    }
+    
+    // ============================================
+    // ADMINS - Admin-specific data (legacy)
+    // ============================================
+    match /admins/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // ============================================
+    // ADMIN PROFILES - Admin user profiles with preferences
+    // ============================================
+    match /admin_profiles/{adminId} {
+      allow read: if isOwner(adminId);
+      allow read: if isAdmin();
+      allow create: if isOwner(adminId) && isAdmin();
+      allow update: if isOwner(adminId) && isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // PLATFORM SETTINGS - Global platform configuration
+    // ============================================
+    match /settings/{settingId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // AUDIT LOG - Admin actions log
+    // ============================================
+    match /audit_log/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+    }
+    
+    // ============================================
+    // MEDICAL ADS - Provider ads with admin moderation
+    // ============================================
+    match /ads/{adId} {
+      allow read: if resource.data.status == 'approved';
+      allow read: if isAuthenticated() && resource.data.providerUserId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isProvider() && 
+                       request.resource.data.providerUserId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.providerUserId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+    
+    // ============================================
+    // PROFILES - Users can only read/write their own
+    // ============================================
+    match /profiles/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+    
+    // ============================================
+    // USER ROLES - Only admins can write, users can read their own
+    // ============================================
+    match /user_roles/{docId} {
+      // Allow users to read their own role documents
+      allow read: if isAuthenticated() && 
+        docId.matches(request.auth.uid + '_.*');
+      // Allow admins to read all roles
+      allow read: if isAdmin();
+      // Self-assignment for signup (patient role) and provider registration
+      allow create: if isAuthenticated() && 
+        docId == (request.auth.uid + '_' + request.resource.data.role) &&
+        request.resource.data.role in ['patient', 'provider'] &&
+        request.resource.data.keys().hasAll(['role', 'user_id']) &&
+        request.resource.data.size() <= 4;
+      // Only admins can update/delete roles
+      allow update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // ANALYTICS - Authenticated write, admin read
+    // ============================================
+    match /analytics_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if isAuthenticated();
+    }
+
+    // ============================================
+    // PROVIDER ANALYTICS - Track provider performance metrics
+    // ============================================
+    match /provider_analytics/{eventId} {
+      // Only authenticated users can create analytics events with schema validation
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['providerId', 'eventType', 'timestamp'])
+        && request.resource.data.eventType is string
+        && request.resource.data.eventType.size() < 50
+        && request.resource.data.providerId is string
+        && request.resource.data.providerId.size() < 100;
+      
+      // Providers can read their own analytics events
+      allow read: if isAuthenticated() && 
+        resource.data.providerUserId == request.auth.uid;
+      
+      // Admins can read all analytics for dashboard/reporting
+      allow read: if isAdmin();
+      
+      // Analytics are immutable - no updates or deletes allowed
+      allow update, delete: if false;
+    }
+    
+    // ============================================
+    // USER QUOTAS - Server-side only (AI chat rate limiting)
+    // ============================================
+    match /user_quotas/{userId} {
+      allow read, write: if false;
+    }
+    
+    // ============================================
+    // FAVORITES - Users can only access their own
+    // ============================================
+    match /favorites/{favoriteId} {
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // PROVIDERS - Public read for verified providers
+    // ============================================
+    match /providers/{providerId} {
+      // Helper: Check if any sensitive fields are being modified
+      function hasSensitiveFieldChanges() {
+        let sensitiveFields = ['name', 'facilityNameFr', 'facilityNameAr', 'type', 'providerType',
+          'legalRegistrationNumber', 'registrationAuthority', 'address', 'city', 'area', 
+          'postalCode', 'lat', 'lng', 'phone', 'email', 'contactPersonName', 
+          'contactPersonRole', 'legalRepresentative', 'verificationDocuments'];
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
+      }
+      
+      // Helper: Check if verification is being properly revoked when sensitive fields change
+      function isVerificationProperlyRevoked() {
+        let wasVerified = resource.data.verificationStatus == 'verified';
+        let hasSensitiveChanges = hasSensitiveFieldChanges();
+        let newStatusIsPending = request.resource.data.verificationStatus == 'pending';
+        let newIsPublicFalse = request.resource.data.isPublic == false;
+        return !wasVerified || !hasSensitiveChanges || (newStatusIsPending && newIsPublicFalse);
+      }
+      
+      // PUBLIC ACCESS: Allow read for verified and public providers
+      // This covers both get and list queries when documents match
+      allow read: if resource.data.verificationStatus == 'verified' && 
+                     resource.data.isPublic == true;
+      
+      // OWNER ACCESS: Users can read their own provider profile (even if not verified)
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // ADMIN ACCESS: Admins can read all providers
+      allow read: if isAdmin();
+      
+      // CREATE: Authenticated users can create providers (for registration)
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.verificationStatus == 'pending';
+      
+      // UPDATE: Owner can update their own profile
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid &&
+                       !(request.resource.data.verificationStatus == 'verified' && 
+                         resource.data.verificationStatus != 'verified') &&
+                       !(request.resource.data.isPublic == true && 
+                         resource.data.isPublic != true) &&
+                       isVerificationProperlyRevoked();
+      
+      // UPDATE: Admins can update any provider (for verification)
+      allow update: if isAdmin();
+      
+      // DELETE: Only admins can delete providers
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // PROVIDER DRAFTS - For registration flow
+    // ============================================
+    match /providerDrafts/{draftId} {
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // APPOINTMENTS - Users can access their own
+    // ============================================
+    match /appointments/{appointmentId} {
+      // Any authenticated user can read appointments (needed for slot availability)
+      allow read: if isAuthenticated();
+      // Admins can read all
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && 
+        request.resource.data.patientId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+        (resource.data.patientId == request.auth.uid || 
+         resource.data.providerUserId == request.auth.uid);
+      allow delete: if isAuthenticated() && 
+        resource.data.patientId == request.auth.uid;
+      
+      // ============================================
+      // APPOINTMENT NOTES - Shared notes subcollection
+      // ============================================
+      match /notes/{noteId} {
+        // Same access level as parent appointments: any authenticated user can read
+        allow read: if isAuthenticated();
+
+        // Only the sender can create a note (senderId must match auth uid)
+        allow create: if isAuthenticated() &&
+          request.resource.data.senderId == request.auth.uid;
+
+        // No updates or deletes (immutable audit trail)
+        allow update, delete: if false;
+      }
+    }
+    
+    // ============================================
+    // VERIFICATION REQUESTS - For admin verification queue
+    // ============================================
+    match /verification_requests/{requestId} {
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // REVIEWS - Public read, authenticated write own
+    // ============================================
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // PROVIDE OFFERS - Community aid / Giving for Free
+    // ============================================
+    match /provide_offers/{offerId} {
+      // Public: anyone can read available offers (no auth required)
+      allow read: if resource.data.status == 'available';
+      // Owners can read all their own offers (any status)
+      allow read: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      // Admins can read all
+      allow read: if isAdmin();
+      // Only providers can create offers they own
+      allow create: if isProvider() && 
+        request.resource.data.ownerId == request.auth.uid;
+      // Owners can update/delete their own offers
+      allow update, delete: if isAuthenticated() && 
+        resource.data.ownerId == request.auth.uid;
+    }
+    
+    // ============================================
+    // CHAT SESSIONS - Users can only access their own
+    // ============================================
+    match /chat_sessions/{sessionId} {
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // ADMIN NOTIFICATIONS - Real-time admin alerts
+    // ============================================
+    match /admin_notifications/{notificationId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

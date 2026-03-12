@@ -1,0 +1,360 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Enhanced focus visible styles for accessibility */
+@layer base {
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+}
+
+/* ============================================
+   CITYHEALTH DESIGN SYSTEM
+   Clean, accessible healthcare design
+   Light theme only - Antigravity design
+   ============================================ */
+
+@layer base {
+  :root {
+    /* ====== COLORS - Light Mode ====== */
+    --background: 0 0% 100%;
+    --foreground: 220 9% 13%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 220 9% 13%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 9% 13%;
+    
+    /* Google Blue Accent */
+    --primary: 217 89% 61%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary */
+    --secondary: 220 9% 46%;
+    --secondary-foreground: 0 0% 100%;
+    
+    /* Muted */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    
+    /* Accent */
+    --accent: 217 89% 61%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Borders */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 89% 61%;
+    
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Chart colors */
+    --chart-1: 217 89% 61%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 39 100% 57%;
+    --chart-4: 14 100% 57%;
+    --chart-5: 0 84% 60%;
+    
+    /* ====== RADIUS ====== */
+    --radius: 0.5rem;
+    --radius-pill: 9999px;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    
+    --primary: 217 89% 61%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 55%;
+    
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 89% 61%;
+    
+    --destructive: 0 63% 51%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --chart-1: 217 89% 61%;
+    --chart-2: 142 76% 46%;
+    --chart-3: 39 100% 57%;
+    --chart-4: 14 100% 57%;
+    --chart-5: 0 84% 60%;
+  }
+  
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'DM Sans', 'Tajawal', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  
+  /* ====== TYPOGRAPHY ====== */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  
+  h1 {
+    @apply text-5xl md:text-6xl lg:text-7xl;
+    line-height: 1.1;
+  }
+  
+  h2 {
+    @apply text-4xl md:text-5xl;
+    line-height: 1.2;
+  }
+  
+  h3 {
+    @apply text-3xl md:text-4xl;
+  }
+  
+  p {
+    line-height: 1.6;
+  }
+}
+
+@layer components {
+  /* ====== PILL BUTTONS ====== */
+  .btn-pill {
+    @apply rounded-[var(--radius-pill)] px-8 py-4 font-medium transition-all duration-200;
+  }
+  
+  .btn-primary-pill {
+    @apply btn-pill bg-foreground text-background hover:bg-foreground/90;
+  }
+  
+  .btn-secondary-pill {
+    @apply btn-pill bg-muted text-foreground hover:bg-muted/80;
+  }
+  
+  /* ====== GLASS PANELS ====== */
+  .glass-panel {
+    @apply bg-card/80 backdrop-blur-sm border border-border/50;
+  }
+  
+  .glass-card {
+    @apply bg-card border border-border shadow-sm;
+  }
+
+  .glass-sidebar {
+    @apply bg-card/95 backdrop-blur-md border-r border-border shadow-xl;
+  }
+  
+  /* ====== VERIFIED BADGE ====== */
+  .verified-badge {
+    @apply bg-primary/10 text-primary border-primary/20;
+  }
+  
+  /* ====== RATING STARS ====== */
+  .rating-stars {
+    @apply text-yellow-500;
+  }
+  
+  /* ====== SPACING UTILITIES ====== */
+  .section-spacing {
+    @apply py-20 md:py-32;
+  }
+
+  .section-spacing-sm {
+    @apply py-12 md:py-20;
+  }
+  
+  .container-wide {
+    @apply max-w-7xl mx-auto px-4 md:px-6 lg:px-8;
+  }
+
+  /* ====== STATUS CARD UTILITIES ====== */
+  .card-status-success {
+    @apply bg-emerald-50 text-emerald-800 border-emerald-200;
+  }
+
+  .card-status-warning {
+    @apply bg-amber-50 text-amber-800 border-amber-200;
+  }
+
+  .card-status-error {
+    @apply bg-red-50 text-red-800 border-red-200;
+  }
+
+  .card-status-info {
+    @apply bg-blue-50 text-blue-800 border-blue-200;
+  }
+}
+
+@layer utilities {
+  /* Hover lift effect for cards */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:-translate-y-1;
+  }
+
+  /* GPU-promoted float animation */
+  .animate-float {
+    will-change: transform;
+  }
+  
+  /* Reduce motion for accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    /* Preserve essential UI transitions (Radix accordion, dialog, etc.) */
+    [data-state="open"],
+    [data-state="closed"] {
+      animation-duration: 0.15s !important;
+      transition-duration: 0.15s !important;
+    }
+  }
+  
+  /* ====== TEXT UTILITIES ====== */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* RTL icon flipping for directional icons */
+  [dir="rtl"] .rtl-flip {
+    transform: scaleX(-1);
+  }
+}
+
+/* ====== CUSTOM SCROLLBAR ====== */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* ====== SELECTION ====== */
+::selection {
+  background: hsl(var(--primary) / 0.2);
+  color: hsl(var(--foreground));
+}
+
+/* ====== LEAFLET MAP FIXES ====== */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius);
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px;
+}
+
+/* RTL Leaflet control positioning */
+[dir="rtl"] .leaflet-control-zoom,
+.rtl .leaflet-control-zoom {
+  left: 10px;
+  right: auto;
+}
+
+[dir="rtl"] .leaflet-control-attribution,
+.rtl .leaflet-control-attribution {
+  left: 0;
+  right: auto;
+}
+
+/* ====== PRINT STYLES ====== */
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  /* Hide everything by default */
+  body > * {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Only show the emergency card */
+  #emergency-card-printable {
+    display: block !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 400px !important;
+    max-width: 400px !important;
+    margin: 0 !important;
+    border: 2px solid #1a1a1a !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  /* Force background colors */
+  #emergency-card-printable .emergency-card-header {
+    background-color: #dc2626 !important;
+    color: white !important;
+  }
+}
+
+/* ====== USER LOCATION MARKER ====== */
+.user-location-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.user-location-popup .leaflet-popup-content-wrapper {
+  background: hsl(var(--primary));
+  color: white;
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+}
+
+.user-location-popup .leaflet-popup-tip {
+  background: hsl(var(--primary));
+}
